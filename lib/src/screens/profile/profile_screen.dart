@@ -92,34 +92,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   const SizedBox(height: 6),
 
-                  // النص الثابت تحت الاسم
-                 // ===== User Role =====
-Container(
-  margin: const EdgeInsets.only(top: 6),
-  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-  decoration: BoxDecoration(
-    color: Colors.white,
-    borderRadius: BorderRadius.circular(20),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(0.05),
-        blurRadius: 6,
-        offset: const Offset(0, 3),
-      ),
-    ],
-  ),
-  child: Text(
-    "${userRoleToString(user.role).toUpperCase()}",
-    style: const TextStyle(
-      fontSize: 13,
-      color: Colors.black87,
-      fontWeight: FontWeight.w600,
-    ),
-  ),
-),
+                 
 
-
-                  const SizedBox(height: 24),
+                
 
                   // ===== Bio =====
                   Align(

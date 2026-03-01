@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../services/profile_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../models/app_user.dart';
 import '../../models/user_role.dart';
 import '../../services/chat_service.dart';
+import '../../services/profile_service.dart';
 import '../chat/chat_screen.dart';
 
 class TutorProfileScreen extends StatelessWidget {
@@ -15,8 +16,38 @@ class TutorProfileScreen extends StatelessWidget {
     required this.user,
   });
 
+  String _normalizeUrl(String url) {
+    var trimmed = url.trim();
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+      trimmed = 'https://$trimmed';
+    }
+    return trimmed;
+  }
+
+  Future<void> _openLinkedIn(BuildContext context, String url) async {
+    final normalized = _normalizeUrl(url);
+    try {
+      final uri = Uri.parse(normalized);
+      final ok = await launchUrl(
+        uri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open LinkedIn link')),
+        );
+      }
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Invalid LinkedIn URL')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final linkedin = user.linkedinUrl; // يفترض عندك هذا الحقل في AppUser
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F6FB),
       appBar: AppBar(
@@ -65,7 +96,7 @@ class TutorProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Bio
+            // ===== Bio =====
             if (user.bio.isNotEmpty) ...[
               Align(
                 alignment: Alignment.centerLeft,
@@ -91,7 +122,64 @@ class TutorProfileScreen extends StatelessWidget {
               const SizedBox(height: 20),
             ],
 
-            // Skills & Subjects
+            // ===== LinkedIn (اختياري) =====
+            if (linkedin != null && linkedin.isNotEmpty) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  'LinkedIn',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              InkWell(
+                onTap: () => _openLinkedIn(context, linkedin),
+                child: Container(
+                  width: double.infinity,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.link,
+                        color: Color(0xFF0A66C2),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          linkedin,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Color(0xFF0A66C2),
+                            fontSize: 13,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+
+            // ===== Skills & Subjects =====
             Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -127,7 +215,7 @@ class TutorProfileScreen extends StatelessWidget {
             ),
             const Spacer(),
 
-            // Contact Tutor button
+            // ===== Contact Tutor button =====
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -144,44 +232,45 @@ class TutorProfileScreen extends StatelessWidget {
                   ),
                 ),
                 onPressed: () async {
-  final chatService =
-      Provider.of<ChatService>(context, listen: false);
+                  final chatService =
+                      Provider.of<ChatService>(context, listen: false);
+                  final profileService =
+                      Provider.of<ProfileService>(context, listen: false);
 
-  // نجيب اسم المستخدم الحالي من البروفايل
-  final profileService =
-      Provider.of<ProfileService>(context, listen: false);
-  final me = await profileService.getCurrentUserProfile();
+                  // نجيب اسم المستخدم الحالي من البروفايل
+                  final me =
+                      await profileService.getCurrentUserProfile();
+                  final currentUserName =
+                      (me != null && me.fullName.isNotEmpty)
+                          ? me.fullName
+                          : 'You';
 
-  final currentUserName =
-      (me != null && me.fullName.isNotEmpty) ? me.fullName : 'You';
+                  try {
+                    final conv = await chatService.startOrGetConversation(
+                      otherUserId: user.id,
+                      currentUserName: currentUserName,
+                      otherUserName: user.fullName,
+                    );
 
-  try {
-    final conv = await chatService.startOrGetConversation(
-      otherUserId: user.id,
-      currentUserName: currentUserName,
-      otherUserName: user.fullName,
-    );
+                    if (!context.mounted) return;
 
-    if (!context.mounted) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => ChatScreen(
-          conversationId: conv.id,
-          otherUserName: user.fullName,
-        ),
-      ),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Failed to open chat: $e'),
-      ),
-    );
-  }
-},
-
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChatScreen(
+                          conversationId: conv.id,
+                          otherUserName: user.fullName,
+                        ),
+                      ),
+                    );
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to open chat: $e'),
+                      ),
+                    );
+                  }
+                },
               ),
             ),
             const SizedBox(height: 16),

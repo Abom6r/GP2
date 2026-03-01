@@ -1,5 +1,5 @@
 import 'user_role.dart';
-export 'user_role.dart'; // ⬅️ هذه الإضافة المهمة
+export 'user_role.dart';
 
 class AppUser {
   final String id;

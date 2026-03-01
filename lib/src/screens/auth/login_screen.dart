@@ -53,7 +53,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 8),
                   const Text(
-                    'Sign in to continue using IU Platform.',
+                    'Sign in to continue using Study Orgnizer.',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.black54,

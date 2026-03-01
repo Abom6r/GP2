@@ -78,7 +78,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Join the IU Platform community',
+                  'Join the Study Organzier community',
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
@@ -181,33 +181,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 ),
                 const SizedBox(height: 16),
 
-                // Role (Student / Tutor / Both)
-                _SectionLabel('Role'),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    _RoleChip(
-                      label: 'Student',
-                      selected: _selectedRole == UserRole.student,
-                      onTap: () =>
-                          setState(() => _selectedRole = UserRole.student),
-                    ),
-                    const SizedBox(width: 8),
-                    _RoleChip(
-                      label: 'Tutor',
-                      selected: _selectedRole == UserRole.tutor,
-                      onTap: () =>
-                          setState(() => _selectedRole = UserRole.tutor),
-                    ),
-                    const SizedBox(width: 8),
-                    _RoleChip(
-                      label: 'Both',
-                      selected: _selectedRole == UserRole.both,
-                      onTap: () =>
-                          setState(() => _selectedRole = UserRole.both),
-                    ),
-                  ],
-                ),
+                
                 const SizedBox(height: 16),
 
                 // Password

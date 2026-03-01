@@ -46,7 +46,7 @@ class StartScreen extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 const Text(
-                  'IU Platform',
+                  'Study Organizer',
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,

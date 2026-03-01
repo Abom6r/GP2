@@ -6,7 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/auth_service.dart';
 import 'auth/login_screen.dart';
 import 'home/home_screen.dart';
-import 'auth/start_screen.dart';
+
 
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
@@ -30,10 +30,9 @@ class AuthGate extends StatelessWidget {
         final session = Supabase.instance.client.auth.currentSession;
 
         if (session == null) {
-          // المستخدم مو مسجل دخول → نعرض شاشة البداية الجميلة
+          // المستخدم مو مسجل دخول → نعرض شاشة البداية 
           return const StartScreen();
-          // لو حاب مباشرة login بدون get started:
-          // return const LoginScreen();
+         
         } else {
           // المستخدم مسجل دخول → نروح للهوم
           return const HomeScreen();
