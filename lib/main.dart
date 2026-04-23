@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
+import 'src/services/schedule_service.dart';
 import 'src/screens/auth/start_screen.dart';
 import 'src/screens/auth_gate.dart';
-
+import 'src/services/tasks_service.dart';
 import 'src/services/auth_service.dart';
 import 'src/services/profile_service.dart';
 import 'src/services/chat_service.dart';
@@ -32,14 +32,14 @@ class MyApp extends StatelessWidget {
         Provider<AuthService>(create: (_) => AuthService()),
         Provider<ProfileService>(create: (_) => ProfileService()),
         Provider<ChatService>(create: (_) => ChatService()),
+        Provider<ScheduleService>(create: (_) => ScheduleService()),
+        Provider<TasksService>(create: (_) => TasksService()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'IU Community',
+        title: 'Student Orgnizer',
         theme: AppTheme.light(),
-        // لو عندك AuthGate يستخدم StartScreen داخله خله هو الأساس
-        // لو ما تستخدم AuthGate حالياً خله StartScreen مباشرة
-        home: const StartScreen(),
+        home: const AuthGate(),
         // مثال لو حاب تستخدم AuthGate:
         // home: const AuthGate(),
       ),

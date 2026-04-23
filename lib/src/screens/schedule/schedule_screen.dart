@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
+import '../../models/study_session.dart';
+import '../../services/schedule_service.dart';
 
 class ScheduleScreen extends StatefulWidget {
   const ScheduleScreen({super.key});
@@ -9,560 +12,417 @@ class ScheduleScreen extends StatefulWidget {
 }
 
 class _ScheduleScreenState extends State<ScheduleScreen> {
-  DateTime _selectedDate = DateTime.now();
-
-  // نموذج بسيط للمهام
-  final Map<String, List<_ScheduleItem>> _itemsByDate = {
-    // مفتاح الخريطة هو التاريخ بصيغة yyyy-MM-dd
-  };
+  late Future<List<StudySession>> _future;
+  bool _saving = false;
 
   @override
   void initState() {
     super.initState();
-    _seedExampleData();
+    _reload();
   }
 
-  void _seedExampleData() {
-    final todayKey = _dateKey(DateTime.now());
-    _itemsByDate[todayKey] = [
-      _ScheduleItem(
-        title: 'Advanced Mathematics',
-        subtitle: 'Room 204, Building A',
-        start: const TimeOfDay(hour: 9, minute: 0),
-        end: const TimeOfDay(hour: 10, minute: 30),
-        tag: 'Ongoing',
-        tagColor: const Color(0xFF2563EB),
-      ),
-      _ScheduleItem(
-        title: 'Physics Lab',
-        subtitle: 'Lab 3, Science Building',
-        start: const TimeOfDay(hour: 11, minute: 0),
-        end: const TimeOfDay(hour: 12, minute: 30),
-        tag: 'Upcoming',
-        tagColor: const Color(0xFFF59E0B),
-      ),
-      _ScheduleItem(
-        title: 'Chemistry Review',
-        subtitle: 'Room 12',
-        start: const TimeOfDay(hour: 13, minute: 0),
-        end: const TimeOfDay(hour: 14, minute: 0),
-        tag: 'Personal',
-        tagColor: const Color(0xFF10B981),
-      ),
-    ];
+  void _reload() {
+    _future = context.read<ScheduleService>().getSessions();
   }
 
-  String _dateKey(DateTime date) =>
-      DateFormat('yyyy-MM-dd').format(date);
-
-  List<_ScheduleItem> get _itemsForSelected {
-    return _itemsByDate[_dateKey(_selectedDate)] ?? [];
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final monthText = DateFormat.yMMMM().format(_selectedDate);
+  String _formatTimeOfDay(TimeOfDay time) {
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    return '$hh:$mm:00';
+  }
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF1F3F8),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF1F3F8),
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
+  TimeOfDay _parseTime(String value) {
+    final parts = value.split(':');
+    return TimeOfDay(
+      hour: int.parse(parts[0]),
+      minute: int.parse(parts[1]),
+    );
+  }
+
+  String _displayTime(String value) {
+    final t = _parseTime(value);
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+  Color _typeColor(String type) {
+    switch (type) {
+      case 'exam':
+        return Colors.red;
+      case 'class':
+        return Colors.blue;
+      case 'study':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _typeText(String type) {
+    switch (type) {
+      case 'exam':
+        return 'Exam';
+      case 'class':
+        return 'Class';
+      case 'study':
+        return 'Study';
+      default:
+        return type;
+    }
+  }
+
+  Future<void> _showSessionDialog({StudySession? session}) async {
+    final titleController = TextEditingController(text: session?.title ?? '');
+    final descController =
+        TextEditingController(text: session?.description ?? '');
+
+    DateTime selectedDate = session?.sessionDate ?? DateTime.now();
+    TimeOfDay startTime =
+        session != null ? _parseTime(session.startTime) : TimeOfDay.now();
+
+    TimeOfDay endTime = session != null
+        ? _parseTime(session.endTime)
+        : TimeOfDay(
+            hour: (TimeOfDay.now().hour + 1) % 24,
+            minute: TimeOfDay.now().minute,
+          );
+
+    String selectedType = session?.sessionType ?? 'study';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return AlertDialog(
+              title: Text(session == null ? 'Add Session' : 'Edit Session'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: descController,
+                      maxLines: 3,
+                      decoration: const InputDecoration(
+                        labelText: 'Description',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      value: selectedType,
+                      decoration: const InputDecoration(
+                        labelText: 'Type',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'study', child: Text('Study')),
+                        DropdownMenuItem(value: 'exam', child: Text('Exam')),
+                        DropdownMenuItem(value: 'class', child: Text('Class')),
+                      ],
+                      onChanged: (value) {
+                        if (value != null) {
+                          setLocalState(() => selectedType = value);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.grey),
+                      ),
+                      title: const Text('Date'),
+                      subtitle: Text(_formatDate(selectedDate)),
+                      trailing: const Icon(Icons.calendar_today),
+                      onTap: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: selectedDate,
+                          firstDate: DateTime(2024),
+                          lastDate: DateTime(2035),
+                        );
+                        if (picked != null) {
+                          setLocalState(() => selectedDate = picked);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.grey),
+                      ),
+                      title: const Text('Start Time'),
+                      subtitle: Text(startTime.format(context)),
+                      trailing: const Icon(Icons.access_time),
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: startTime,
+                        );
+                        if (picked != null) {
+                          setLocalState(() => startTime = picked);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    ListTile(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        side: const BorderSide(color: Colors.grey),
+                      ),
+                      title: const Text('End Time'),
+                      subtitle: Text(endTime.format(context)),
+                      trailing: const Icon(Icons.access_time_filled),
+                      onTap: () async {
+                        final picked = await showTimePicker(
+                          context: context,
+                          initialTime: endTime,
+                        );
+                        if (picked != null) {
+                          setLocalState(() => endTime = picked);
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context, false),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context, true),
+                  child: Text(session == null ? 'Add' : 'Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (result != true) return;
+
+    if (titleController.text.trim().isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Title is required')),
+      );
+      return;
+    }
+
+    final startMinutes = startTime.hour * 60 + startTime.minute;
+    final endMinutes = endTime.hour * 60 + endTime.minute;
+
+    if (endMinutes <= startMinutes) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('End time must be after start time')),
+      );
+      return;
+    }
+
+    try {
+      _saving = true;
+
+      final service = context.read<ScheduleService>();
+
+      if (session == null) {
+        await service.addSession(
+          title: titleController.text,
+          description: descController.text,
+          sessionType: selectedType,
+          sessionDate: selectedDate,
+          startTime: _formatTimeOfDay(startTime),
+          endTime: _formatTimeOfDay(endTime),
+        );
+      } else {
+        await service.updateSession(
+          sessionId: session.id,
+          title: titleController.text,
+          description: descController.text,
+          sessionType: selectedType,
+          sessionDate: selectedDate,
+          startTime: _formatTimeOfDay(startTime),
+          endTime: _formatTimeOfDay(endTime),
+        );
+      }
+
+      if (!mounted) return;
+
+      setState(_reload);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(session == null
+              ? 'Session added successfully'
+              : 'Session updated successfully'),
         ),
-        centerTitle: true,
-        title: const Text(
-          'My Schedule',
-          style: TextStyle(
-            color: Colors.black87,
-            fontWeight: FontWeight.bold,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Save failed: $e')),
+      );
+    } finally {
+      _saving = false;
+    }
+  }
+
+  Future<void> _deleteSession(StudySession session) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Delete Session'),
+        content: Text('Are you sure you want to delete "${session.title}"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
           ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await context.read<ScheduleService>().deleteSession(session.id);
+
+      if (!mounted) return;
+      setState(_reload);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Session deleted successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Delete failed: $e')),
+      );
+    }
+  }
+
+  Widget _buildSessionCard(StudySession session) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(14),
+        title: Text(
+          session.title,
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF2563EB),
-        onPressed: _showAddItemSheet,
-        child: const Icon(Icons.add, color: Colors.white),
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 8),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // بطاقة التقويم
+              if ((session.description ?? '').trim().isNotEmpty) ...[
+                Text(session.description!),
+                const SizedBox(height: 8),
+              ],
+              Text('Date: ${_formatDate(session.sessionDate)}'),
+              const SizedBox(height: 4),
+              Text(
+                'Time: ${_displayTime(session.startTime)} - ${_displayTime(session.endTime)}',
+              ),
+              const SizedBox(height: 8),
               Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+                  color: _typeColor(session.sessionType).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // شريط الشهر والأزرار
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        IconButton(
-                          icon: const Icon(
-                            Icons.chevron_left,
-                            color: Colors.black54,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _selectedDate = DateTime(
-                                _selectedDate.year,
-                                _selectedDate.month - 1,
-                                _selectedDate.day,
-                              );
-                            });
-                          },
-                        ),
-                        Column(
-                          children: [
-                            Text(
-                              monthText,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            const Text(
-                              'Select a date',
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: const Icon(
-                            Icons.chevron_right,
-                            color: Colors.black54,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              _selectedDate = DateTime(
-                                _selectedDate.year,
-                                _selectedDate.month + 1,
-                                _selectedDate.day,
-                              );
-                            });
-                          },
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // شريط أيام الأسبوع + الأيام
-                    _buildWeekDays(),
-                    const SizedBox(height: 8),
-                    _buildDaysRow(),
-                  ],
+                child: Text(
+                  _typeText(session.sessionType),
+                  style: TextStyle(
+                    color: _typeColor(session.sessionType),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-
-              const SizedBox(height: 20),
-
-              const Text(
-                "Today's Schedule",
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              Expanded(
-                child: _itemsForSelected.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No events for this day.\nTap + to add one.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 13,
-                          ),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: _itemsForSelected.length,
-                        itemBuilder: (context, index) {
-                          final item = _itemsForSelected[index];
-                          return _ScheduleCard(item: item);
-                        },
-                      ),
               ),
             ],
           ),
         ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) async {
+            if (value == 'edit') {
+              await _showSessionDialog(session: session);
+            } else if (value == 'delete') {
+              await _deleteSession(session);
+            }
+          },
+          itemBuilder: (context) => const [
+            PopupMenuItem(value: 'edit', child: Text('Edit')),
+            PopupMenuItem(value: 'delete', child: Text('Delete')),
+          ],
+        ),
       ),
     );
-  }
-
-  Widget _buildWeekDays() {
-    final labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: labels
-          .map(
-            (l) => Expanded(
-              child: Center(
-                child: Text(
-                  l,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildDaysRow() {
-    // نعرض أسبوع حول التاريخ المختار
-    final startOfWeek =
-        _selectedDate.subtract(Duration(days: _selectedDate.weekday - 1));
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: List.generate(7, (index) {
-        final day = startOfWeek.add(Duration(days: index));
-        final isSelected = _isSameDay(day, _selectedDate);
-
-        return Expanded(
-          child: GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedDate = day;
-              });
-            },
-            child: Container(
-              margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 2),
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: isSelected
-                    ? const Color(0xFF2563EB)
-                    : Colors.transparent,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  Text(
-                    '${day.day}',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.w500,
-                      color: isSelected ? Colors.white : Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-
-  bool _isSameDay(DateTime a, DateTime b) {
-    return a.year == b.year &&
-        a.month == b.month &&
-        a.day == b.day;
-  }
-
-  Future<void> _showAddItemSheet() async {
-    final titleCtrl = TextEditingController();
-    final subtitleCtrl = TextEditingController();
-    TimeOfDay? startTime;
-    TimeOfDay? endTime;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      builder: (context) {
-        return Padding(
-          padding: EdgeInsets.only(
-            left: 16,
-            right: 16,
-            bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-            top: 16,
-          ),
-          child: StatefulBuilder(
-            builder: (context, setStateSheet) {
-              return Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Add Reminder',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: titleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Title',
-                    ),
-                  ),
-                  TextField(
-                    controller: subtitleCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Location / notes',
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextButton.icon(
-                          onPressed: () async {
-                            final res = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (res != null) {
-                              setStateSheet(() {
-                                startTime = res;
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.schedule),
-                          label: Text(
-                            startTime == null
-                                ? 'Start time'
-                                : startTime!.format(context),
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: TextButton.icon(
-                          onPressed: () async {
-                            final res = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.now(),
-                            );
-                            if (res != null) {
-                              setStateSheet(() {
-                                endTime = res;
-                              });
-                            }
-                          },
-                          icon: const Icon(Icons.schedule_outlined),
-                          label: Text(
-                            endTime == null
-                                ? 'End time'
-                                : endTime!.format(context),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2563EB),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      ),
-                      onPressed: () {
-                        if (titleCtrl.text.trim().isEmpty ||
-                            startTime == null ||
-                            endTime == null) {
-                          return;
-                        }
-                        final list =
-                            _itemsByDate[_dateKey(_selectedDate)] ?? [];
-                        list.add(
-                          _ScheduleItem(
-                            title: titleCtrl.text.trim(),
-                            subtitle: subtitleCtrl.text.trim(),
-                            start: startTime!,
-                            end: endTime!,
-                            tag: 'Reminder',
-                            tagColor: const Color(0xFF10B981),
-                          ),
-                        );
-                        _itemsByDate[_dateKey(_selectedDate)] = list;
-                        setState(() {});
-                        Navigator.pop(context);
-                      },
-                      child: const Text(
-                        'Save',
-                        style: TextStyle(color: Colors.white),
-                      ),
-                    ),
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _ScheduleItem {
-  final String title;
-  final String subtitle;
-  final TimeOfDay start;
-  final TimeOfDay end;
-  final String tag;
-  final Color tagColor;
-
-  _ScheduleItem({
-    required this.title,
-    required this.subtitle,
-    required this.start,
-    required this.end,
-    required this.tag,
-    required this.tagColor,
-  });
-}
-
-class _ScheduleCard extends StatelessWidget {
-  final _ScheduleItem item;
-
-  const _ScheduleCard({required this.item});
-
-  String _formatTimeRange(BuildContext context) {
-    return '${item.start.format(context)} - ${item.end.format(context)}';
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // الوقت على اليسار
-          SizedBox(
-            width: 60,
-            child: Text(
-              item.start.format(context),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.grey,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(18),
-                border: Border(
-                  left: BorderSide(
-                    color: item.tagColor,
-                    width: 4,
+    return FutureBuilder<List<StudySession>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Error: ${snapshot.error}'),
+          );
+        }
+
+        final sessions = snapshot.data ?? [];
+
+        return Scaffold(
+          body: sessions.isEmpty
+              ? const Center(
+                  child: Text('No sessions yet. Tap + to add one.'),
+                )
+              : RefreshIndicator(
+                  onRefresh: () async {
+                    setState(_reload);
+                    await _future;
+                  },
+                  child: ListView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    itemCount: sessions.length,
+                    itemBuilder: (context, index) {
+                      return _buildSessionCard(sessions[index]);
+                    },
                   ),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.03),
-                    blurRadius: 12,
-                    offset: const Offset(0, 6),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // العنوان + التاج
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          item.title,
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: item.tagColor.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Text(
-                          item.tag,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: item.tagColor,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    item.subtitle,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatTimeRange(context),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => _showSessionDialog(),
+            child: const Icon(Icons.add),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

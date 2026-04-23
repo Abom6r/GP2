@@ -215,14 +215,14 @@ class TutorProfileScreen extends StatelessWidget {
             ),
             const Spacer(),
 
-            // ===== Contact Tutor button =====
+            // ===== Contact button =====
             SizedBox(
               width: double.infinity,
               height: 50,
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.chat_bubble_outline),
                 label: const Text(
-                  'Contact Tutor',
+                  'Contact ',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(

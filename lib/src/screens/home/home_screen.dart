@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../profile/profile_screen.dart';
 import '../community/community_screen.dart';
-
+import '../tasks/task_screen.dart';
 import '../../models/app_user.dart';
 import '../../services/profile_service.dart';
 import '../chat/conversations_screen.dart';
@@ -219,6 +219,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const ScheduleScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _QuickActionCard(
+                      title: 'Tasks',
+                      subtitle: 'Manage your tasks',
+                      gradientColors: const [
+                        Color(0xFF2D9CDB),
+                        Color(0xFF2F80ED),
+                      ],
+                      icon: Icons.check_circle,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TasksScreen(),
                           ),
                         );
                       },

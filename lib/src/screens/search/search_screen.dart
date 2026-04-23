@@ -82,7 +82,7 @@ class _SearchScreenState extends State<SearchScreen> {
               child: _results.isEmpty && !_loading
                   ? const Center(
                       child: Text(
-                        'Start searching for tutors...',
+                        'Start searching for Groups...',
                         style: TextStyle(color: Colors.grey),
                       ),
                     )
