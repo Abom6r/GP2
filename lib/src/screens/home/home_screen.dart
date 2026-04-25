@@ -127,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.rss_feed),
-            label: 'Feed',
+            label: 'Community',
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.chat_bubble_outline),

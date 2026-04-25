@@ -14,7 +14,38 @@ class GroupChatService {
     return uid;
   }
 
-  // ================== STREAM ==================
+  Future<void> _notifyGroupMembers({
+    required String groupId,
+    required String senderId,
+    required String title,
+    required String body,
+    required String type,
+  }) async {
+    final membersRes = await _supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', groupId);
+
+    final members = (membersRes as List).cast<Map<String, dynamic>>();
+
+    final notifications = members
+        .where((m) => m['user_id'] != senderId)
+        .map((m) {
+          return {
+            'user_id': m['user_id'],
+            'title': title,
+            'body': body,
+            'type': type,
+            'related_id': groupId,
+          };
+        })
+        .toList();
+
+    if (notifications.isNotEmpty) {
+      await _supabase.from('notifications').insert(notifications);
+    }
+  }
+
   Stream<List<Map<String, dynamic>>> watchMessages(String groupId) {
     return _supabase
         .from('group_messages')
@@ -51,7 +82,6 @@ class GroupChatService {
     });
   }
 
-  // ================== TEXT ==================
   Future<void> sendMessage({
     required String groupId,
     required String message,
@@ -66,9 +96,16 @@ class GroupChatService {
       'message': message.trim(),
       'message_type': 'text',
     });
+
+    await _notifyGroupMembers(
+      groupId: groupId,
+      senderId: uid,
+      title: 'New Group Message',
+      body: message.trim(),
+      type: 'group_message',
+    );
   }
 
-  // ================== FILE UPLOAD 🔥 ==================
   Future<void> uploadAndSendFile({
     required String groupId,
   }) async {
@@ -93,15 +130,10 @@ class GroupChatService {
     final path =
         '$groupId/$uid/${DateTime.now().millisecondsSinceEpoch}_$fileName';
 
-    // رفع الملف
-    await _supabase.storage
-        .from('group-files')
-        .uploadBinary(path, bytes);
+    await _supabase.storage.from('group-files').uploadBinary(path, bytes);
 
-    final url =
-        _supabase.storage.from('group-files').getPublicUrl(path);
+    final url = _supabase.storage.from('group-files').getPublicUrl(path);
 
-    // حفظ في الرسائل
     await _supabase.from('group_messages').insert({
       'group_id': groupId,
       'sender_id': uid,
@@ -111,5 +143,13 @@ class GroupChatService {
       'file_name': file.name,
       'file_size': file.size,
     });
+
+    await _notifyGroupMembers(
+      groupId: groupId,
+      senderId: uid,
+      title: 'New Group File',
+      body: file.name,
+      type: 'group_file',
+    );
   }
 }
