@@ -12,6 +12,8 @@ import '../../services/profile_service.dart';
 import '../../services/tasks_service.dart';
 import '../chat/conversations_screen.dart';
 import '../schedule/schedule_screen.dart';
+import '../notifications/notifications_screen.dart';
+import '../../services/notifications_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -51,6 +53,58 @@ class _HomeScreenState extends State<HomeScreen> {
         );
 
     setState(_reloadTasks);
+  }
+
+  Widget _buildNotificationButton() {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: context.read<NotificationsService>().watchNotifications(),
+      builder: (context, snapshot) {
+        final unread = snapshot.data
+                ?.where((n) => n['is_read'] == false)
+                .length ??
+            0;
+
+        return Stack(
+          clipBehavior: Clip.none,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.notifications,
+                color: Colors.white,
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const NotificationsScreen(),
+                  ),
+                );
+              },
+            ),
+            if (unread > 0)
+              Positioned(
+                right: 4,
+                top: 4,
+                child: Container(
+                  padding: const EdgeInsets.all(5),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Text(
+                    unread > 9 ? '9+' : '$unread',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -150,9 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
-
             const SizedBox(height: 12),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -176,7 +228,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-
             if (snapshot.connectionState == ConnectionState.waiting)
               const Center(child: CircularProgressIndicator())
             else if (visibleTasks.isEmpty)
@@ -301,32 +352,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const Spacer(),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.9),
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Text(
-                        '3',
-                        style: TextStyle(
-                          color: Colors.orange,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                    _buildNotificationButton(),
                   ],
                 ),
               ),
-
               const SizedBox(height: 16),
-
               _buildProgressAndTasks(),
-
               const SizedBox(height: 18),
-
               const Text(
                 'Quick Actions',
                 style: TextStyle(
@@ -340,7 +372,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 13, color: Colors.grey),
               ),
               const SizedBox(height: 16),
-
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,

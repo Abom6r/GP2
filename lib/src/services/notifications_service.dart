@@ -1,7 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class NotificationsService {
-  final _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   String get uid => _supabase.auth.currentUser!.id;
 
@@ -10,7 +10,8 @@ class NotificationsService {
         .from('notifications')
         .stream(primaryKey: ['id'])
         .eq('user_id', uid)
-        .order('created_at', ascending: false);
+        .order('created_at', ascending: false)
+        .map((rows) => rows.cast<Map<String, dynamic>>());
   }
 
   Future<void> addNotification({
@@ -34,5 +35,12 @@ class NotificationsService {
         .from('notifications')
         .update({'is_read': true})
         .eq('id', id);
+  }
+
+  Future<void> markAllAsRead() async {
+    await _supabase
+        .from('notifications')
+        .update({'is_read': true})
+        .eq('user_id', uid);
   }
 }
