@@ -16,7 +16,7 @@ import 'src/services/posts_service.dart';
 import 'src/services/notifications_service.dart';
 import 'src/services/polls_service.dart';
 import 'src/theme/app_theme.dart';
-
+import 'src/services/ai_planner_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -46,6 +46,7 @@ class MyApp extends StatelessWidget {
         Provider<GroupTasksService>(create: (_) => GroupTasksService()),
         Provider<NotificationsService>(create: (_) => NotificationsService()),
         Provider<PollsService>(create: (_) => PollsService()),
+        Provider<AIPlannerService>(create: (_) => AIPlannerService()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

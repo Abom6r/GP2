@@ -10,6 +10,8 @@ import '../../models/app_user.dart';
 import '../../models/task.dart';
 import '../../services/profile_service.dart';
 import '../../services/tasks_service.dart';
+import '../../services/schedule_service.dart';
+import '../../services/ai_planner_service.dart';
 import '../chat/conversations_screen.dart';
 import '../schedule/schedule_screen.dart';
 import '../notifications/notifications_screen.dart';
@@ -55,14 +57,89 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(_reloadTasks);
   }
 
+  Future<void> _runAIPlanner() async {
+    final controller = TextEditingController();
+
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('AI Planner'),
+        content: TextField(
+          controller: controller,
+          minLines: 4,
+          maxLines: 7,
+          decoration: const InputDecoration(
+            hintText:
+                'Example:\nI have a Database exam after 3 days\nChapter 1: Indexing\nChapter 2: Hashing',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Generate'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    final prompt = controller.text.trim();
+    if (prompt.isEmpty) return;
+
+    try {
+      final plan = await context.read<AIPlannerService>().generatePlan(prompt);
+
+      final sessions =
+          (plan['sessions'] as List).cast<Map<String, dynamic>>();
+      final tasks = (plan['tasks'] as List).cast<Map<String, dynamic>>();
+
+      for (final s in sessions) {
+        await context.read<ScheduleService>().addSession(
+              title: s['title'] ?? 'Study Session',
+              description: s['description'],
+              sessionType: s['session_type'] ?? 'study',
+              sessionDate: DateTime.parse(s['session_date']),
+              startTime: s['start_time'] ?? '18:00:00',
+              endTime: s['end_time'] ?? '20:00:00',
+            );
+      }
+
+      for (final t in tasks) {
+        await context.read<TasksService>().addTask(
+              title: t['title'] ?? 'Study Task',
+              description: t['description'],
+              priority: t['priority'] ?? 'medium',
+              status: 'pending',
+              dueDate: DateTime.parse(t['due_date']),
+            );
+      }
+
+      if (!mounted) return;
+      setState(_reloadTasks);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('AI Plan Created Successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('AI failed: $e')),
+      );
+    }
+  }
+
   Widget _buildNotificationButton() {
     return StreamBuilder<List<Map<String, dynamic>>>(
       stream: context.read<NotificationsService>().watchNotifications(),
       builder: (context, snapshot) {
-        final unread = snapshot.data
-                ?.where((n) => n['is_read'] == false)
-                .length ??
-            0;
+        final unread =
+            snapshot.data?.where((n) => n['is_read'] == false).length ?? 0;
 
         return Stack(
           clipBehavior: Clip.none,
@@ -277,9 +354,8 @@ class _HomeScreenState extends State<HomeScreen> {
       future: _profileFuture,
       builder: (context, snapshot) {
         final user = snapshot.data;
-        final name = user?.fullName?.isNotEmpty == true
-            ? user!.fullName
-            : 'Ahmed';
+        final name =
+            user?.fullName?.isNotEmpty == true ? user!.fullName : 'Ahmed';
 
         return Padding(
           padding: const EdgeInsets.all(16),
@@ -379,6 +455,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   mainAxisSpacing: 14,
                   childAspectRatio: 0.95,
                   children: [
+                    _QuickActionCard(
+                      title: 'AI Planner',
+                      subtitle: 'Smart study plan',
+                      gradientColors: const [
+                        Color(0xFF6A11CB),
+                        Color(0xFF2575FC),
+                      ],
+                      icon: Icons.auto_awesome,
+                      onTap: _runAIPlanner,
+                    ),
                     _QuickActionCard(
                       title: 'Schedule',
                       subtitle: 'Look to your schedule',
