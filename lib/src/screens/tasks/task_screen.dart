@@ -80,6 +80,25 @@ class _TasksScreenState extends State<TasksScreen> {
     }
   }
 
+  Future<void> _toggleTaskStatus(Task task) async {
+    final newStatus = task.status == 'completed' ? 'pending' : 'completed';
+
+    try {
+      await context.read<TasksService>().updateTaskStatus(
+            taskId: task.id,
+            status: newStatus,
+          );
+
+      if (!mounted) return;
+      setState(_reload);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Update failed: $e')),
+      );
+    }
+  }
+
   Future<void> _showTaskDialog({Task? task}) async {
     final titleController = TextEditingController(text: task?.title ?? '');
     final descController = TextEditingController(text: task?.description ?? '');
@@ -296,16 +315,21 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Widget _buildTaskCard(Task task) {
+    final isCompleted = task.status == 'completed';
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: ListTile(
         contentPadding: const EdgeInsets.all(14),
+        leading: Checkbox(
+          value: isCompleted,
+          onChanged: (_) => _toggleTaskStatus(task),
+        ),
         title: Text(
           task.title,
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            decoration:
-                task.status == 'completed' ? TextDecoration.lineThrough : null,
+            decoration: isCompleted ? TextDecoration.lineThrough : null,
           ),
         ),
         subtitle: Padding(
@@ -314,7 +338,12 @@ class _TasksScreenState extends State<TasksScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if ((task.description ?? '').trim().isNotEmpty) ...[
-                Text(task.description!),
+                Text(
+                  task.description!,
+                  style: TextStyle(
+                    decoration: isCompleted ? TextDecoration.lineThrough : null,
+                  ),
+                ),
                 const SizedBox(height: 8),
               ],
               if (task.dueDate != null) ...[

@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'src/services/schedule_service.dart';
-import 'src/screens/auth/start_screen.dart';
+
 import 'src/screens/auth_gate.dart';
+
+import 'src/services/group_tasks_service.dart';
+import 'src/services/schedule_service.dart';
 import 'src/services/tasks_service.dart';
 import 'src/services/auth_service.dart';
 import 'src/services/profile_service.dart';
 import 'src/services/chat_service.dart';
-
+import 'src/services/groups_service.dart';
+import 'src/services/group_chat_service.dart';
+import 'src/services/posts_service.dart';
+import 'src/services/notifications_service.dart';
+import 'src/services/polls_service.dart';
 import 'src/theme/app_theme.dart';
 
 void main() async {
@@ -34,14 +40,18 @@ class MyApp extends StatelessWidget {
         Provider<ChatService>(create: (_) => ChatService()),
         Provider<ScheduleService>(create: (_) => ScheduleService()),
         Provider<TasksService>(create: (_) => TasksService()),
+        Provider<GroupsService>(create: (_) => GroupsService()),
+        Provider<GroupChatService>(create: (_) => GroupChatService()),
+        Provider<PostsService>(create: (_) => PostsService()),
+        Provider<GroupTasksService>(create: (_) => GroupTasksService()),
+        Provider<NotificationsService>(create: (_) => NotificationsService()),
+        Provider<PollsService>(create: (_) => PollsService()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Student Orgnizer',
+        title: 'Student Organizer',
         theme: AppTheme.light(),
         home: const AuthGate(),
-        // مثال لو حاب تستخدم AuthGate:
-        // home: const AuthGate(),
       ),
     );
   }

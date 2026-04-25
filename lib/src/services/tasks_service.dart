@@ -75,6 +75,19 @@ class TasksService {
         .eq('user_id', uid);
   }
 
+  Future<void> updateTaskStatus({
+    required String taskId,
+    required String status,
+  }) async {
+    final uid = _uidOrThrow();
+
+    await _supabase
+        .from('tasks')
+        .update({'status': status})
+        .eq('id', taskId)
+        .eq('user_id', uid);
+  }
+
   Future<void> deleteTask(String taskId) async {
     final uid = _uidOrThrow();
 

@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../groups/groups_screen.dart';
 import '../profile/profile_screen.dart';
 import '../community/community_screen.dart';
 import '../tasks/task_screen.dart';
 import '../../models/app_user.dart';
+import '../../models/task.dart';
 import '../../services/profile_service.dart';
+import '../../services/tasks_service.dart';
 import '../chat/conversations_screen.dart';
 import '../schedule/schedule_screen.dart';
 
@@ -20,6 +23,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   late Future<AppUser?> _profileFuture;
+  late Future<List<Task>> _tasksFuture;
 
   @override
   void initState() {
@@ -27,6 +31,26 @@ class _HomeScreenState extends State<HomeScreen> {
     final profileService =
         Provider.of<ProfileService>(context, listen: false);
     _profileFuture = profileService.getCurrentUserProfile();
+    _reloadTasks();
+  }
+
+  void _reloadTasks() {
+    _tasksFuture = context.read<TasksService>().getTasks();
+  }
+
+  Future<void> _toggleTask(Task task) async {
+    final newStatus = task.status == 'completed' ? 'pending' : 'completed';
+
+    await context.read<TasksService>().updateTask(
+          taskId: task.id,
+          title: task.title,
+          description: task.description,
+          priority: task.priority,
+          status: newStatus,
+          dueDate: task.dueDate,
+        );
+
+    setState(_reloadTasks);
   }
 
   @override
@@ -74,8 +98,125 @@ class _HomeScreenState extends State<HomeScreen> {
         return const ProfileScreen();
       case 1:
       default:
-        return const CommunityScreen(); // تبويب Feed يفتح Community
+        return const CommunityScreen();
     }
+  }
+
+  Widget _buildProgressAndTasks() {
+    return FutureBuilder<List<Task>>(
+      future: _tasksFuture,
+      builder: (context, snapshot) {
+        final tasks = snapshot.data ?? [];
+        final completed =
+            tasks.where((t) => t.status == 'completed').length;
+        final total = tasks.length;
+        final progress = total == 0 ? 0.0 : completed / total;
+        final percent = (progress * 100).round();
+
+        final visibleTasks = tasks.take(3).toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Card(
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Study Progress',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 10,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      '$completed of $total tasks completed ($percent%)',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 12),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Today Tasks',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const TasksScreen(),
+                      ),
+                    ).then((_) => setState(_reloadTasks));
+                  },
+                  child: const Text('View all'),
+                ),
+              ],
+            ),
+
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Center(child: CircularProgressIndicator())
+            else if (visibleTasks.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No tasks yet',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              )
+            else
+              ...visibleTasks.map((task) {
+                final checked = task.status == 'completed';
+
+                return Card(
+                  color: Colors.white,
+                  margin: const EdgeInsets.symmetric(vertical: 4),
+                  child: CheckboxListTile(
+                    value: checked,
+                    onChanged: (_) => _toggleTask(task),
+                    title: Text(
+                      task.title,
+                      style: TextStyle(
+                        decoration:
+                            checked ? TextDecoration.lineThrough : null,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      task.priority.toUpperCase(),
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                    controlAffinity: ListTileControlAffinity.leading,
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
   }
 
   Widget _buildHomeTab() {
@@ -87,14 +228,13 @@ class _HomeScreenState extends State<HomeScreen> {
         final user = snapshot.data;
         final name = user?.fullName?.isNotEmpty == true
             ? user!.fullName
-            : 'Ahmed'; // تقدر تخليها من الإيميل لو حاب
+            : 'Ahmed';
 
         return Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // الهيدر الأزرق فوق
               Container(
                 width: double.infinity,
                 padding:
@@ -114,7 +254,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 child: Row(
                   children: [
-                    // أيقونة بسيطة فيها IU
                     Container(
                       width: 42,
                       height: 42,
@@ -162,7 +301,6 @@ class _HomeScreenState extends State<HomeScreen> {
                       ],
                     ),
                     const Spacer(),
-                    // دائرة التنبيه (مثلاً عدد الإشعارات)
                     Container(
                       width: 28,
                       height: 28,
@@ -183,7 +321,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
+
+              _buildProgressAndTasks(),
+
+              const SizedBox(height: 18),
+
               const Text(
                 'Quick Actions',
                 style: TextStyle(
@@ -198,7 +341,6 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 16),
 
-              // الكروت الأربعة
               Expanded(
                 child: GridView.count(
                   crossAxisCount: 2,
@@ -236,6 +378,23 @@ class _HomeScreenState extends State<HomeScreen> {
                           context,
                           MaterialPageRoute(
                             builder: (_) => const TasksScreen(),
+                          ),
+                        ).then((_) => setState(_reloadTasks));
+                      },
+                    ),
+                    _QuickActionCard(
+                      title: 'Groups',
+                      subtitle: 'Find study groups',
+                      gradientColors: const [
+                        Color(0xFF56CCF2),
+                        Color(0xFF2F80ED),
+                      ],
+                      icon: Icons.group_add,
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const GroupsScreen(),
                           ),
                         );
                       },
